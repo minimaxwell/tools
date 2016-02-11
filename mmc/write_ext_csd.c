@@ -43,7 +43,7 @@ int get_fd(){
 	int fd;
 
 	fd = open("/dev/mmcblk0", O_RDWR|O_NONBLOCK);
-	if(!fd)
+	if(fd < 0)
 		printf("%s : could not open /dev/mmcblk0\n", __func__);
 
 	return fd;
@@ -108,7 +108,7 @@ int main(int argc, char **argv){
 
 	fd = get_fd();
 
-	if(fd){
+	if(fd >= 0){
 		ret = set_ext_csd(fd, offset, value);
 		close(fd);
 	}
