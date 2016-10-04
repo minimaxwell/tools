@@ -31,7 +31,7 @@
 #define EIR_DEVICE_ID               0x10  /* device ID */
 static int signal_received = 0;
 
-static void on_adv(const char *name, le_advertising_info *info, void *data, int len) {
+static void on_adv(const char *name, le_advertising_info *info) {
 
 	time_t timer;
 	char buffer[26];
@@ -42,15 +42,7 @@ static void on_adv(const char *name, le_advertising_info *info, void *data, int 
 
 	char addr[18];
 	ba2str(&info->bdaddr, addr);
-	int i;
-	uint8_t *info_data = data;
 	printf("%s|%s|%d|%s\n", buffer, addr, info->bdaddr_type, name);
-	
-	for (i=0; i<len; i++) {
-		printf("%02x ", info_data[i]);
-		if( ! ((i+1)%8) )
-			printf("\n");
-	}
 }
 
 static void eir_parse_name(uint8_t *eir, size_t eir_len,
@@ -149,8 +141,7 @@ static int print_advertising_devices(int dd, uint8_t filter_type) {
 		eir_parse_name(info->data, info->length,
 							name, sizeof(name) - 1);
 
-		on_adv(name, info, ptr, len);
-		printf("\n-----------------------\n");
+		on_adv(name, info);
 	}
 
 done:
