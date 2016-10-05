@@ -31,65 +31,30 @@
 #define EIR_DEVICE_ID               0x10  /* device ID */
 static int signal_received = 0;
 
-static void on_adv(const char *name, le_advertising_info *info) {
+static time_t base_time;
 
-	time_t timer;
-	char buffer[26];
-	struct tm* tm_info;
-	time(&timer);
-	tm_info = localtime(&timer);
-	strftime(buffer, 26, "%Y-%m-%d-%H:%M:%S", tm_info);
+static time_t get_timestamp() {
+	struct timespec ts;
 
-	char addr[18];
-	ba2str(&info->bdaddr, addr);
-	printf("%s|%s|%d|%s\n", buffer, addr, info->bdaddr_type, name);
-}
+	clock_gettime(CLOCK_MONOTONIC, &ts);
 
-static void eir_parse_name(uint8_t *eir, size_t eir_len,
-						char *buf, size_t buf_len) {
-	size_t offset;
-
-	offset = 0;
-	while (offset < eir_len) {
-		uint8_t field_len = eir[0];
-		size_t name_len;
-
-		/* Check for the end of EIR */
-		if (field_len == 0)
-			break;
-
-		if (offset + field_len > eir_len)
-			goto failed;
-
-		switch (eir[1]) {
-		case EIR_NAME_SHORT:
-		case EIR_NAME_COMPLETE:
-			name_len = field_len - 1;
-			if (name_len > buf_len)
-				goto failed;
-
-			memcpy(buf, &eir[2], name_len);
-			return;
-		}
-
-		offset += field_len + 1;
-		eir += field_len + 1;
-	}
-
-failed:
-	snprintf(buf, buf_len, "(unknown)");
+	return ts.tv_sec - base_time;
 }
 
 static void sigint_handler(int sig){
 	signal_received = sig;
 }
 
-static int print_advertising_devices(int dd, uint8_t filter_type) {
+static int log_advertisements(int dd, int log_fd) {
+
 	unsigned char buf[HCI_MAX_EVENT_SIZE], *ptr;
 	struct hci_filter nf, of;
 	struct sigaction sa;
 	socklen_t olen;
 	int len;
+	uint16_t len_wr;
+	unsigned long nb_adv = 0;
+	uint64_t timestamp;
 
 	olen = sizeof(of);
 	if (getsockopt(dd, SOL_HCI, HCI_FILTER, &of, &olen) < 0) {
@@ -112,8 +77,6 @@ static int print_advertising_devices(int dd, uint8_t filter_type) {
 	sigaction(SIGINT, &sa, NULL);
 
 	while (1) {
-		evt_le_meta_event *meta;
-		le_advertising_info *info;
 
 		while ((len = read(dd, buf, sizeof(buf))) < 0) {
 			if (errno == EINTR && signal_received == SIGINT) {
@@ -126,34 +89,36 @@ static int print_advertising_devices(int dd, uint8_t filter_type) {
 			goto done;
 		}
 
+		timestamp = (uint64_t) get_timestamp();
+
+		nb_adv++;
+
 		ptr = buf + (1 + HCI_EVENT_HDR_SIZE);
 		len -= (1 + HCI_EVENT_HDR_SIZE);
 
-		meta = (void *) ptr;
+		len_wr = (uint16_t) len;
 
-		if (meta->subevent != 0x02)
+		/* Packets : 
+		 * bytes [0..7] : timestamp in seconds( 0 is start of acquisition )
+		 * bytes [8..9] : length of adv data
+		 * bytes [10..10+len] : adv data
+		 * */
+
+		/* Use fixed-size types */
+		write(log_fd, &timestamp, sizeof(uint64_t));
+		write(log_fd, &len_wr, sizeof(uint16_t));
+
+		if (write( log_fd, ptr, len) != len) {
+			printf("Error writing to log file\n");
 			goto done;
-
-		info = (le_advertising_info *) (meta->data + 1);
-		char name[30];
-		memset(name, 0, sizeof(name));
-
-		eir_parse_name(info->data, info->length,
-							name, sizeof(name) - 1);
-
-		on_adv(name, info);
-		int i;
-		for (i = 0; i < len; i++) {
-			printf("%02x ",ptr[i]);
-			if( !( (i+1) % 16) )
-				printf("\n");
 		}
-		printf("\n");
 
 	}
 
 done:
 	setsockopt(dd, SOL_HCI, HCI_FILTER, &of, sizeof(of));
+	
+	printf("Captured %llu advertisements\n", nb_adv);
 
 	if (len < 0)
 		return -1;
@@ -161,11 +126,10 @@ done:
 	return 0;
 }
 
-static void cmd_lescan(int dev_id) {
+static void cmd_lescan(int dev_id, int log_fd) {
 	int err, dd;
 	uint8_t own_type = LE_RANDOM_ADDRESS;
 	uint8_t scan_type = 0x01;
-	uint8_t filter_type = 0;
 	uint8_t filter_policy = 0x00;
 	uint16_t interval = htobs(0x0010);
 	uint16_t window = htobs(0x0010);
@@ -194,9 +158,7 @@ static void cmd_lescan(int dev_id) {
 		exit(1);
 	}
 
-	printf("LE Scan ...\n");
-
-	err = print_advertising_devices(dd, filter_type);
+	err = log_advertisements(dd, log_fd);
 	if (err < 0) {
 		perror("Could not receive advertising events");
 		exit(1);
@@ -211,8 +173,30 @@ static void cmd_lescan(int dev_id) {
 	hci_close_dev(dd);
 }
 
-void start_scan() {
-	int	dev_id = hci_devid("hci0");
+void start_scan(const char *filename) {
 
-	cmd_lescan(dev_id);
+	struct timespec ts;
+	int dev_id, log_fd;
+
+	/* hci fd */
+	dev_id = hci_devid("hci0");
+	
+	/* open log file ( binary ) */
+	log_fd = open(filename, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+
+	if (!log_fd) {
+		printf("cannot open %s\n", filename);
+		goto fail_log;
+	}
+
+	/* init base time */
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	base_time = ts.tv_sec;
+
+	cmd_lescan(dev_id, log_fd);
+
+fail_log:
+	close(log_fd);
+
+	hci_close_dev(dev_id);
 }
