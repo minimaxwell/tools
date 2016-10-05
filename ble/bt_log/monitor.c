@@ -142,6 +142,14 @@ static int print_advertising_devices(int dd, uint8_t filter_type) {
 							name, sizeof(name) - 1);
 
 		on_adv(name, info);
+		int i;
+		for (i = 0; i < len; i++) {
+			printf("%02x ",ptr[i]);
+			if( !( (i+1) % 16) )
+				printf("\n");
+		}
+		printf("\n");
+
 	}
 
 done:
