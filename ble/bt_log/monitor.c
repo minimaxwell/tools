@@ -53,7 +53,7 @@ static int log_advertisements(int dd, int log_fd) {
 	socklen_t olen;
 	int len;
 	uint16_t len_wr;
-	unsigned long nb_adv = 0;
+	unsigned long long nb_adv = 0;
 	uint64_t timestamp;
 
 	olen = sizeof(of);
