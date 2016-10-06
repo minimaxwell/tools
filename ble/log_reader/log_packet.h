@@ -1,5 +1,5 @@
-#ifndef __PACKET_H__
-#define __PACKET_H__
+#ifndef __LOG_PACKET_H__
+#define __LOG_PACKET_H__
 
 #include <bluetooth/bluetooth.h>
 #include <bluetooth/hci.h>

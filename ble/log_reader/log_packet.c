@@ -1,10 +1,11 @@
-#include "packet.h"
+#include "log_packet.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+
 
 t_packet *read_next_packet(int fd) {
 	t_packet *packet;
@@ -27,11 +28,16 @@ t_packet *read_next_packet(int fd) {
 		return NULL;
 	}
 	
-	read(fd, &type, 1);
+	if (read(fd, &type, 1) != 1) {
+		printf("Cannot read type\n");
+		return NULL;
+	}
 	len--;
 
-	read(fd, &nb_info, 1);
-	len--;
+	if (read(fd, &nb_info, 1) != 1) {
+		printf("Cannot read nb adv info\n");
+		len--;
+	}
 
 	data = malloc(len);
 	if (read(fd, data, len) != len) {

@@ -1,5 +1,5 @@
 CFLAGS=-I. -lbluetooth -O2 -g -Wall
-OBJ = log_reader.o packet.o
+OBJ = log_reader.o log_packet.o packet.o
 
 all : log_reader
 
