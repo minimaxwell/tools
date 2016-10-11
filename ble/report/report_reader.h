@@ -3,4 +3,6 @@
 
 #include "report.h"
 
+GSList *read_reports(const char *file);
+
 #endif

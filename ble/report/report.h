@@ -28,9 +28,9 @@ void report_free(t_report *report);
 
 void device_free(t_device *device);
 
-t_field *field_create(const char *name, const char *value); 
+t_field *field_create(char *name, char *value); 
 
-void field_add_info(t_field *field, const char *info);
+void field_add_info(t_field *field, char *info);
 
 t_report *report_create(unsigned long long timestamp);
 

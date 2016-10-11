@@ -35,16 +35,16 @@ void device_free(t_device *device) {
 	free(device);
 }
 
-t_field *field_create(const char *name, const char *value) {
+t_field *field_create(char *name, char *value) {
 	t_field *field = malloc(sizeof(t_field));
-	field->name = g_strdup(name);
-	field->value = g_strdup(value);
+	field->name = name;
+	field->value = value;
 	field->infos = NULL;
 	return field;
 }
 
-void field_add_info(t_field *field, const char *info) {
-	field->infos = g_slist_append( field->infos, g_strdup(info));
+void field_add_info(t_field *field, char *info) {
+	field->infos = g_slist_append( field->infos, info);
 }
 
 t_report *report_create(unsigned long long timestamp) {
