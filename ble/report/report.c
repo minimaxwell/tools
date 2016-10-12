@@ -4,6 +4,7 @@
 #include <glib.h>
 #include <gio/gio.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <unistd.h>
 
 void field_free(t_field *field) {
@@ -52,7 +53,7 @@ t_report *report_create(unsigned long long timestamp) {
 
 	report->timestamp = timestamp;
 
-	g_slist_free_full(report->fields, (GDestroyNotify) field_free);
+	report->fields = NULL;
 
 	return report;
 }
@@ -158,5 +159,35 @@ void device_add_report( t_device *device,
 
 		rep_elem = rep_elem->next;
 	}
+}
+
+void print_field(t_field *field) {
+	printf("        %s: %s", field->name, field->value);
+
+	if( field->infos ) {
+		GSList *elem = field->infos;
+
+		while (elem) {
+			printf("\n          %s", (char *)elem->data);
+			elem = elem->next;
+		}
+	}
+
+	printf("\n");
+}
+
+void print_report(t_report *report) {
+	printf("report %llu\n", report->timestamp);
+
+	GSList *elem = report->fields;
+
+	while (elem) {
+		print_field( (t_field *) elem->data);
+		elem = elem->next;
+	}
+}
+
+void print_device(t_device *device) {
+
 }
 

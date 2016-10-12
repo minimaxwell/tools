@@ -42,4 +42,8 @@ t_device *device_create();
 
 void device_add_report( t_device *device, const t_report *report,
 						GSList *ignore_list, GSList *replace_list);
+
+void print_field(t_field *field);
+void print_report(t_report *report);
+void print_device(t_device *device);
 #endif

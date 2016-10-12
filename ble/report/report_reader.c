@@ -70,6 +70,9 @@ static char *consume_info(char **line) {
 	if(**line != '(')
 		return NULL;
 
+	/* Skip '(' */
+	*line = *line + 1;
+
 	while (**line && **line != ')') {
 		buff[i++] = **line;
 		*line = *line + 1;
@@ -93,6 +96,9 @@ static unsigned long long get_timestamp(char **line) {
 	while (**line && **line != ']')
 		*line = *line + 1;
 
+	/* skip '[' */
+	*line = *line + 1;
+
 	consume_spaces(line);
 
 	while (**line && **line != '.') {
@@ -101,6 +107,10 @@ static unsigned long long get_timestamp(char **line) {
 	}
 
 	buff[i] = '\0';
+
+	/* Remove '.' */
+	if (i)
+		buff[i-1] = '\0';
 
 	if (buff[0])
 		return (unsigned long long) atoll(buff);
@@ -111,41 +121,60 @@ static unsigned long long get_timestamp(char **line) {
 
 
 static bool is_new_event_line(char *line) {
-	if (line[0] == ' ' || line[0] == '>')
+	if (line[0] == '>')
 		return true;
 	else
 		return false;
 }
 
 static bool is_valid_line(char *line) {
-	if (line[strlen(line) - 1] != '\n')
+	if (line[strlen(line) - 1] != '\n') {
+		printf("invalid line %s", line);
 		return false;
+	}
 	
 	return true;
 }
 
-GSList *read_reports(const char *file) {
+static bool ignore_field(GSList *ignore_list, char *field_name) {
+	GSList *elem = ignore_list;
+
+	while (elem) {
+		if (!g_strcmp0( (char *)elem->data, field_name) ) {
+			return true;
+		}
+
+		elem = elem->next;
+	}
+
+	return false;
+}
+
+GSList *read_reports(const char *file, GSList *ignore_list) {
     GSList *reports = NULL;
-	char *buff = malloc( 256 * sizeof(char));
+	char *buff = NULL;
 	char *line = NULL;
 	char *name, *value, *info;
-	size_t len;
+	size_t len = 0;
 	int nb_spaces;
 	t_field *current_field = NULL;
 	t_report *current_report = NULL;
 
 	FILE *fp = fopen(file, "r");
-	if (!fp)
+	if (!fp) {
+		printf("Cannot open %s\n", file);
 		return NULL;
+	}
 
 	/* Get to start of first event */
 	while ( getline(&buff, &len, fp) != -1 ) {
-		if (is_new_event_line(buff))
+		if (!is_new_event_line(buff)) {
 			break;
+		}
 	}
 
 	do {
-		line = &buff[0];
+		line = buff;
 		if (is_valid_line(line)) {
 			/* remove trailing '\n' */
 			line[ strlen(line) - 1] = '\0';
@@ -166,6 +195,10 @@ GSList *read_reports(const char *file) {
 
 		if (nb_spaces == 8) {
 			name = consume_field_name( &line );
+			
+			if(ignore_field(ignore_list, name))
+				continue;
+
 			value = consume_field_value( &line );
 			info = consume_info( &line );
 
@@ -198,7 +231,9 @@ GSList *read_reports(const char *file) {
 		reports = g_slist_append( reports, current_report );
 
 	fclose(fp);
-	free(buff);
+
+	if(buff)
+		free(buff);
 
     return reports;
 }
