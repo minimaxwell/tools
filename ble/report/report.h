@@ -12,7 +12,7 @@ typedef struct {
 } t_field;
 
 typedef struct {
-	unsigned long long timestamp;
+	long long timestamp;
 	GSList *fields;
 } t_report;
 
@@ -32,7 +32,7 @@ t_field *field_create(char *name, char *value);
 
 void field_add_info(t_field *field, char *info);
 
-t_report *report_create(unsigned long long timestamp);
+t_report *report_create(long long timestamp);
 
 void report_add_field(t_report *report, t_field *field, bool replace);
 
@@ -46,4 +46,6 @@ void device_add_report( t_device *device, const t_report *report,
 void print_field(t_field *field);
 void print_report(t_report *report);
 void print_device(t_device *device);
+
+GSList *get_devices_by_field( GSList *reports, char *name, GSList *replace_list);
 #endif

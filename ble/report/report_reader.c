@@ -89,7 +89,7 @@ static char *get_full_info_line(char *line) {
 	return g_strdup(line);
 }
 
-static unsigned long long get_timestamp(char **line) {
+static long long get_timestamp(char **line) {
 	char buff[256];
 	int i = 0;
 
@@ -113,7 +113,7 @@ static unsigned long long get_timestamp(char **line) {
 		buff[i-1] = '\0';
 
 	if (buff[0])
-		return (unsigned long long) atoll(buff);
+		return (long long) atoll(buff);
 	else
 		return 0;
 
@@ -183,10 +183,14 @@ GSList *read_reports(const char *file, GSList *ignore_list) {
 		}
 		
 		if (is_new_event_line(line)) {
-			if( current_report )
+			if( current_report ) {
+				if( current_field ) {
+					report_add_field( current_report, current_field, false);
+					current_field = NULL;
+				}
 				reports = g_slist_append(reports, current_report);
-
-			unsigned long long timestamp = get_timestamp(&line);
+			}
+			long long timestamp = get_timestamp(&line);
 			current_report = report_create(timestamp);
 			continue;
 		}
